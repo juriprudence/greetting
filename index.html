@@ -9,6 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <!-- Gradio Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@gradio/client@2.1.0/dist/index.min.js"></script>
     <script>
         // Global variables and functions
         let generatedImageUrl = '';
@@ -44,11 +46,8 @@
             try {
                 showNotification("Generating your greeting...", "info");
                 
-                // Import Gradio client dynamically
-                const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@2.1.0/dist/index.min.js");
-                
                 // Create a new client with specific options to handle CORS
-                const client = await Client.connect("https://809b9de7fc0807efd9.gradio.live/", {
+                const client = await window.GradioClient.connect("https://809b9de7fc0807efd9.gradio.live/", {
                     mode: "cors",
                     credentials: "omit",
                     headers: {
