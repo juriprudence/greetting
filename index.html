@@ -5,228 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eid Greeting Generator</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-    <!-- Gradio Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@gradio/client@2.1.0/dist/index.min.js"></script>
-    <script>
-        // Global variables and functions
-        let generatedImageUrl = '';
-        let currentShareKey = '';
-        let storage;
-        let database;
-
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyAGGgRkZeRg0uocWLAreM5vK1ShOMdNUoU",
-            authDomain: "arricle.firebaseapp.com",
-            databaseURL: "https://arricle-default-rtdb.firebaseio.com",
-            projectId: "arricle",
-            storageBucket: "arricle.firebasestorage.app",
-            messagingSenderId: "157978309595",
-            appId: "1:157978309595:web:a9711b559ab4bf152d2dfe",
-            measurementId: "G-4TLF775R4M"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        storage = firebase.storage();
-        database = firebase.database();
-
-        // Global functions
-        window.generateImage = async function() {
-            const nameInput = document.getElementById("name").value.trim();
-            if (!nameInput) {
-                showNotification("Please enter your name.", "error");
-                return;
-            }
-
-            try {
-                showNotification("Generating your greeting...", "info");
-                
-                // Create a new client with specific options to handle CORS
-                const client = await window.GradioClient.connect("https://809b9de7fc0807efd9.gradio.live/", {
-                    mode: "cors",
-                    credentials: "omit",
-                    headers: {
-                        "Accept": "application/json",
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                // Add error handling for the prediction
-                try {
-                    const result = await client.predict("/predict", [nameInput]);
-                    
-                    if (result && result.data && result.data.length > 0) {
-                        generatedImageUrl = result.data[0].url;
-                        
-                        // Save to Firebase Storage
-                        const response = await fetch(generatedImageUrl, {
-                            mode: "cors",
-                            credentials: "omit",
-                            headers: {
-                                "Accept": "image/*"
-                            }
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        
-                        const blob = await response.blob();
-                        const timestamp = Date.now();
-                        const storageRef = storage.ref(`greetings/${timestamp}.png`);
-                        await storageRef.put(blob);
-                        const savedImageUrl = await storageRef.getDownloadURL();
-
-                        // Save to Firebase Database
-                        const shareKey = timestamp.toString();
-                        await database.ref(`greetings/${shareKey}`).set({
-                            name: nameInput,
-                            imageUrl: savedImageUrl,
-                            timestamp: timestamp
-                        });
-
-                        currentShareKey = shareKey;
-                        const shareUrl = `${window.location.origin}${window.location.pathname}?key=${shareKey}`;
-
-                        document.getElementById("imageContainer").innerHTML = `
-                            <div class="image-wrapper">
-                                <img id="generatedImage" src="${savedImageUrl}" alt="Generated Eid Card">
-                                <div class="image-overlay">
-                                    <button onclick="downloadImage()" class="action-btn download-btn">
-                                        <i class="fas fa-download"></i> Download
-                                    </button>
-                                </div>
-                            </div>`;
-                        document.querySelector(".share-buttons").style.display = "flex";
-                        showNotification("Greeting generated successfully!", "success");
-                        
-                        // Show share link
-                        showShareLink(shareUrl);
-                    } else {
-                        throw new Error("No image data received");
-                    }
-                } catch (predictError) {
-                    console.error("Prediction error:", predictError);
-                    if (predictError.message.includes("Failed to fetch")) {
-                        throw new Error("Unable to connect to the image generation service. Please try again later.");
-                    }
-                    throw new Error("Failed to generate image. Please try again.");
-                }
-            } catch (error) {
-                console.error("Error generating image:", error);
-                showNotification(error.message || "An error occurred while generating the image.", "error");
-            }
-        };
-
-        window.downloadImage = function() {
-            if (!generatedImageUrl) {
-                showNotification("Please generate an image first.", "error");
-                return;
-            }
-
-            const link = document.createElement('a');
-            link.href = generatedImageUrl;
-            link.download = 'eid-greeting.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showNotification("Image downloaded successfully!", "success");
-        };
-
-        window.shareOnFacebook = function() {
-            if (!currentShareKey) {
-                showNotification("Please generate an image first.", "error");
-                return;
-            }
-
-            const shareUrl = `${window.location.origin}${window.location.pathname}?key=${currentShareKey}`;
-            const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent('Check out my personalized Eid greeting!')}`;
-            window.open(fbShareUrl, '_blank');
-        };
-
-        window.copyShareLink = function(button) {
-            const input = button.parentElement.querySelector('input');
-            input.select();
-            document.execCommand('copy');
-            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-            setTimeout(() => {
-                button.innerHTML = '<i class="fas fa-copy"></i> Copy Link';
-            }, 2000);
-            showNotification("Share link copied to clipboard!", "success");
-        };
-
-        function showShareLink(url) {
-            const shareLinkContainer = document.createElement('div');
-            shareLinkContainer.className = 'share-link-container';
-            shareLinkContainer.innerHTML = `
-                <div class="share-link-wrapper">
-                    <input type="text" value="${url}" readonly>
-                    <button onclick="copyShareLink(this)" class="copy-btn">
-                        <i class="fas fa-copy"></i> Copy Link
-                    </button>
-                </div>
-            `;
-            document.querySelector(".share-buttons").appendChild(shareLinkContainer);
-        }
-
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
-            setTimeout(() => {
-                notification.classList.add('show');
-            }, 100);
-
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => {
-                    document.body.removeChild(notification);
-                }, 300);
-            }, 3000);
-        }
-
-        // Check if we're on a shared page
-        const urlParams = new URLSearchParams(window.location.search);
-        const shareKey = urlParams.get('key');
-
-        if (shareKey) {
-            // Load shared image
-            loadSharedImage(shareKey);
-        }
-
-        async function loadSharedImage(key) {
-            try {
-                const snapshot = await database.ref(`greetings/${key}`).once('value');
-                const data = snapshot.val();
-                if (data) {
-                    document.getElementById("imageContainer").innerHTML = `
-                        <div class="image-wrapper">
-                            <img id="generatedImage" src="${data.imageUrl}" alt="Shared Eid Card">
-                            <div class="image-overlay">
-                                <button onclick="downloadImage()" class="action-btn download-btn">
-                                    <i class="fas fa-download"></i> Download
-                                </button>
-                            </div>
-                        </div>`;
-                    document.querySelector(".share-buttons").style.display = "flex";
-                    document.getElementById("name").value = data.name;
-                    document.getElementById("name").disabled = true;
-                    document.querySelector('button[onclick="generateImage()"]').style.display = "none";
-                    showNotification("Shared greeting loaded!", "success");
-                }
-            } catch (error) {
-                console.error("Error loading shared image:", error);
-                showNotification("Error loading shared greeting.", "error");
-            }
-        }
-    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         :root {
@@ -465,5 +243,228 @@
             </button>
         </div>
     </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js";
+        import { getDatabase, ref as dbRef, set, get } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js";
+        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@2.1.0/dist/index.min.js";
+
+        // Global variables
+        let generatedImageUrl = '';
+        let currentShareKey = '';
+        let storage;
+        let database;
+
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAGGgRkZeRg0uocWLAreM5vK1ShOMdNUoU",
+            authDomain: "arricle.firebaseapp.com",
+            databaseURL: "https://arricle-default-rtdb.firebaseio.com",
+            projectId: "arricle",
+            storageBucket: "arricle.firebasestorage.app",
+            messagingSenderId: "157978309595",
+            appId: "1:157978309595:web:a9711b559ab4bf152d2dfe",
+            measurementId: "G-4TLF775R4M"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        storage = getStorage(app);
+        database = getDatabase(app);
+
+        // Global functions
+        window.generateImage = async function() {
+            const nameInput = document.getElementById("name").value.trim();
+            if (!nameInput) {
+                showNotification("Please enter your name.", "error");
+                return;
+            }
+
+            try {
+                showNotification("Generating your greeting...", "info");
+                
+                // Create a new client with specific options to handle CORS
+                const client = await Client.connect("https://809b9de7fc0807efd9.gradio.live/", {
+                    mode: "cors",
+                    credentials: "omit",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                // Add error handling for the prediction
+                try {
+                    const result = await client.predict("/predict", [nameInput]);
+                    
+                    if (result && result.data && result.data.length > 0) {
+                        generatedImageUrl = result.data[0].url;
+                        
+                        // Save to Firebase Storage
+                        const response = await fetch(generatedImageUrl, {
+                            mode: "cors",
+                            credentials: "omit",
+                            headers: {
+                                "Accept": "image/*"
+                            }
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const blob = await response.blob();
+                        const timestamp = Date.now();
+                        const storageRef = ref(storage, `greetings/${timestamp}.png`);
+                        await uploadBytes(storageRef, blob);
+                        const savedImageUrl = await getDownloadURL(storageRef);
+
+                        // Save to Firebase Database
+                        const shareKey = timestamp.toString();
+                        await set(dbRef(database, `greetings/${shareKey}`), {
+                            name: nameInput,
+                            imageUrl: savedImageUrl,
+                            timestamp: timestamp
+                        });
+
+                        currentShareKey = shareKey;
+                        const shareUrl = `${window.location.origin}${window.location.pathname}?key=${shareKey}`;
+
+                        document.getElementById("imageContainer").innerHTML = `
+                            <div class="image-wrapper">
+                                <img id="generatedImage" src="${savedImageUrl}" alt="Generated Eid Card">
+                                <div class="image-overlay">
+                                    <button onclick="downloadImage()" class="action-btn download-btn">
+                                        <i class="fas fa-download"></i> Download
+                                    </button>
+                                </div>
+                            </div>`;
+                        document.querySelector(".share-buttons").style.display = "flex";
+                        showNotification("Greeting generated successfully!", "success");
+                        
+                        // Show share link
+                        showShareLink(shareUrl);
+                    } else {
+                        throw new Error("No image data received");
+                    }
+                } catch (predictError) {
+                    console.error("Prediction error:", predictError);
+                    if (predictError.message.includes("Failed to fetch")) {
+                        throw new Error("Unable to connect to the image generation service. Please try again later.");
+                    }
+                    throw new Error("Failed to generate image. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error generating image:", error);
+                showNotification(error.message || "An error occurred while generating the image.", "error");
+            }
+        };
+
+        window.downloadImage = function() {
+            if (!generatedImageUrl) {
+                showNotification("Please generate an image first.", "error");
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = generatedImageUrl;
+            link.download = 'eid-greeting.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification("Image downloaded successfully!", "success");
+        };
+
+        window.shareOnFacebook = function() {
+            if (!currentShareKey) {
+                showNotification("Please generate an image first.", "error");
+                return;
+            }
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}?key=${currentShareKey}`;
+            const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent('Check out my personalized Eid greeting!')}`;
+            window.open(fbShareUrl, '_blank');
+        };
+
+        window.copyShareLink = function(button) {
+            const input = button.parentElement.querySelector('input');
+            input.select();
+            document.execCommand('copy');
+            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => {
+                button.innerHTML = '<i class="fas fa-copy"></i> Copy Link';
+            }, 2000);
+            showNotification("Share link copied to clipboard!", "success");
+        };
+
+        function showShareLink(url) {
+            const shareLinkContainer = document.createElement('div');
+            shareLinkContainer.className = 'share-link-container';
+            shareLinkContainer.innerHTML = `
+                <div class="share-link-wrapper">
+                    <input type="text" value="${url}" readonly>
+                    <button onclick="copyShareLink(this)" class="copy-btn">
+                        <i class="fas fa-copy"></i> Copy Link
+                    </button>
+                </div>
+            `;
+            document.querySelector(".share-buttons").appendChild(shareLinkContainer);
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Check if we're on a shared page
+        const urlParams = new URLSearchParams(window.location.search);
+        const shareKey = urlParams.get('key');
+
+        if (shareKey) {
+            // Load shared image
+            loadSharedImage(shareKey);
+        }
+
+        async function loadSharedImage(key) {
+            try {
+                const snapshot = await get(dbRef(database, `greetings/${key}`));
+                const data = snapshot.val();
+                if (data) {
+                    document.getElementById("imageContainer").innerHTML = `
+                        <div class="image-wrapper">
+                            <img id="generatedImage" src="${data.imageUrl}" alt="Shared Eid Card">
+                            <div class="image-overlay">
+                                <button onclick="downloadImage()" class="action-btn download-btn">
+                                    <i class="fas fa-download"></i> Download
+                                </button>
+                            </div>
+                        </div>`;
+                    document.querySelector(".share-buttons").style.display = "flex";
+                    document.getElementById("name").value = data.name;
+                    document.getElementById("name").disabled = true;
+                    document.querySelector('button[onclick="generateImage()"]').style.display = "none";
+                    showNotification("Shared greeting loaded!", "success");
+                }
+            } catch (error) {
+                console.error("Error loading shared image:", error);
+                showNotification("Error loading shared greeting.", "error");
+            }
+        }
+    </script>
 </body>
 </html> 
