@@ -9,10 +9,14 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-    <script type="module">
-        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@2.1.0/dist/index.min.js";
+    <script>
+        // Global variables and functions
+        let generatedImageUrl = '';
+        let currentShareKey = '';
+        let storage;
+        let database;
 
-        // Firebase configuration
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyAGGgRkZeRg0uocWLAreM5vK1ShOMdNUoU",
             authDomain: "arricle.firebaseapp.com",
@@ -26,48 +30,11 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        const storage = firebase.storage();
-        const database = firebase.database();
+        storage = firebase.storage();
+        database = firebase.database();
 
-        let generatedImageUrl = '';
-        let currentShareKey = '';
-
-        // Check if we're on a shared page
-        const urlParams = new URLSearchParams(window.location.search);
-        const shareKey = urlParams.get('key');
-
-        if (shareKey) {
-            // Load shared image
-            loadSharedImage(shareKey);
-        }
-
-        async function loadSharedImage(key) {
-            try {
-                const snapshot = await database.ref(`greetings/${key}`).once('value');
-                const data = snapshot.val();
-                if (data) {
-                    document.getElementById("imageContainer").innerHTML = `
-                        <div class="image-wrapper">
-                            <img id="generatedImage" src="${data.imageUrl}" alt="Shared Eid Card">
-                            <div class="image-overlay">
-                                <button onclick="downloadImage()" class="action-btn download-btn">
-                                    <i class="fas fa-download"></i> Download
-                                </button>
-                            </div>
-                        </div>`;
-                    document.querySelector(".share-buttons").style.display = "flex";
-                    document.getElementById("name").value = data.name;
-                    document.getElementById("name").disabled = true;
-                    document.querySelector('button[onclick="generateImage()"]').style.display = "none";
-                    showNotification("Shared greeting loaded!", "success");
-                }
-            } catch (error) {
-                console.error("Error loading shared image:", error);
-                showNotification("Error loading shared greeting.", "error");
-            }
-        }
-
-        async function generateImage() {
+        // Global functions
+        window.generateImage = async function() {
             const nameInput = document.getElementById("name").value.trim();
             if (!nameInput) {
                 showNotification("Please enter your name.", "error");
@@ -76,6 +43,9 @@
 
             try {
                 showNotification("Generating your greeting...", "info");
+                
+                // Import Gradio client dynamically
+                const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@2.1.0/dist/index.min.js");
                 
                 // Create a new client with specific options to handle CORS
                 const client = await Client.connect("https://809b9de7fc0807efd9.gradio.live/", {
@@ -152,7 +122,44 @@
                 console.error("Error generating image:", error);
                 showNotification(error.message || "An error occurred while generating the image.", "error");
             }
-        }
+        };
+
+        window.downloadImage = function() {
+            if (!generatedImageUrl) {
+                showNotification("Please generate an image first.", "error");
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = generatedImageUrl;
+            link.download = 'eid-greeting.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification("Image downloaded successfully!", "success");
+        };
+
+        window.shareOnFacebook = function() {
+            if (!currentShareKey) {
+                showNotification("Please generate an image first.", "error");
+                return;
+            }
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}?key=${currentShareKey}`;
+            const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent('Check out my personalized Eid greeting!')}`;
+            window.open(fbShareUrl, '_blank');
+        };
+
+        window.copyShareLink = function(button) {
+            const input = button.parentElement.querySelector('input');
+            input.select();
+            document.execCommand('copy');
+            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => {
+                button.innerHTML = '<i class="fas fa-copy"></i> Copy Link';
+            }, 2000);
+            showNotification("Share link copied to clipboard!", "success");
+        };
 
         function showShareLink(url) {
             const shareLinkContainer = document.createElement('div');
@@ -166,43 +173,6 @@
                 </div>
             `;
             document.querySelector(".share-buttons").appendChild(shareLinkContainer);
-        }
-
-        function copyShareLink(button) {
-            const input = button.parentElement.querySelector('input');
-            input.select();
-            document.execCommand('copy');
-            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-            setTimeout(() => {
-                button.innerHTML = '<i class="fas fa-copy"></i> Copy Link';
-            }, 2000);
-            showNotification("Share link copied to clipboard!", "success");
-        }
-
-        function downloadImage() {
-            if (!generatedImageUrl) {
-                showNotification("Please generate an image first.", "error");
-                return;
-            }
-
-            const link = document.createElement('a');
-            link.href = generatedImageUrl;
-            link.download = 'eid-greeting.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showNotification("Image downloaded successfully!", "success");
-        }
-
-        function shareOnFacebook() {
-            if (!currentShareKey) {
-                showNotification("Please generate an image first.", "error");
-                return;
-            }
-
-            const shareUrl = `${window.location.origin}${window.location.pathname}?key=${currentShareKey}`;
-            const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent('Check out my personalized Eid greeting!')}`;
-            window.open(fbShareUrl, '_blank');
         }
 
         function showNotification(message, type) {
@@ -223,10 +193,40 @@
             }, 3000);
         }
 
-        window.generateImage = generateImage;
-        window.shareOnFacebook = shareOnFacebook;
-        window.downloadImage = downloadImage;
-        window.copyShareLink = copyShareLink;
+        // Check if we're on a shared page
+        const urlParams = new URLSearchParams(window.location.search);
+        const shareKey = urlParams.get('key');
+
+        if (shareKey) {
+            // Load shared image
+            loadSharedImage(shareKey);
+        }
+
+        async function loadSharedImage(key) {
+            try {
+                const snapshot = await database.ref(`greetings/${key}`).once('value');
+                const data = snapshot.val();
+                if (data) {
+                    document.getElementById("imageContainer").innerHTML = `
+                        <div class="image-wrapper">
+                            <img id="generatedImage" src="${data.imageUrl}" alt="Shared Eid Card">
+                            <div class="image-overlay">
+                                <button onclick="downloadImage()" class="action-btn download-btn">
+                                    <i class="fas fa-download"></i> Download
+                                </button>
+                            </div>
+                        </div>`;
+                    document.querySelector(".share-buttons").style.display = "flex";
+                    document.getElementById("name").value = data.name;
+                    document.getElementById("name").disabled = true;
+                    document.querySelector('button[onclick="generateImage()"]').style.display = "none";
+                    showNotification("Shared greeting loaded!", "success");
+                }
+            } catch (error) {
+                console.error("Error loading shared image:", error);
+                showNotification("Error loading shared greeting.", "error");
+            }
+        }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
