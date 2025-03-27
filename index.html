@@ -9,6 +9,8 @@
     <meta property="og:title" content="Eid Greeting Generator">
     <meta property="og:description" content="Create and share personalized Eid greetings">
     <meta property="og:image" content="">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:url" content="">
     <meta property="og:type" content="website">
     
@@ -379,7 +381,7 @@
         import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
         // --- Configuration ---
-        const GRADIO_API_URL = "https://48afd3a11b0bfe8bc2.gradio.live/";
+        const GRADIO_API_URL = "https://87e19e4956dd8f92c5.gradio.live/";
         const GRADIO_API_ENDPOINT = "/predict";
         const IMGBB_API_KEY = "e1061fbc744e899dca33adbd060f484e"; // Replace with your ImgBB API key
 
@@ -457,7 +459,7 @@
             }
         }
 
-        // Add function to update meta tags
+        // Update the updateMetaTags function
         function updateMetaTags(imageUrl, name) {
             const currentUrl = window.location.href;
             const title = name ? `Eid Greeting for ${name}` : 'Eid Greeting Generator';
@@ -468,18 +470,29 @@
             // Update Open Graph tags
             document.querySelector('meta[property="og:title"]').setAttribute('content', title);
             document.querySelector('meta[property="og:description"]').setAttribute('content', description);
-            document.querySelector('meta[property="og:image"]').setAttribute('content', imageUrl);
+            
+            // Update image URL only if we have a valid image URL
+            if (imageUrl) {
+                const absoluteImageUrl = new URL(imageUrl, window.location.origin).href;
+                document.querySelector('meta[property="og:image"]').setAttribute('content', absoluteImageUrl);
+                document.querySelector('meta[name="twitter:image"]').setAttribute('content', absoluteImageUrl);
+            } else {
+                // Clear image URLs if no image is available
+                document.querySelector('meta[property="og:image"]').setAttribute('content', '');
+                document.querySelector('meta[name="twitter:image"]').setAttribute('content', '');
+            }
+            
             document.querySelector('meta[property="og:url"]').setAttribute('content', currentUrl);
 
             // Update Twitter Card tags
             document.querySelector('meta[name="twitter:title"]').setAttribute('content', title);
             document.querySelector('meta[name="twitter:description"]').setAttribute('content', description);
-            document.querySelector('meta[name="twitter:image"]').setAttribute('content', imageUrl);
 
             // Update page title
             document.title = title;
         }
 
+        // Update the generateImage function to ensure meta tags are updated after image upload
         window.generateImage = async function() {
             if (isGenerating) {
                 return;
@@ -546,7 +559,7 @@
                 generatedImage.alt = `Eid Greeting for ${name}`;
                 imageWrapper.style.display = 'block';
                 
-                // Update meta tags with the new image
+                // Update meta tags with the new image URL
                 updateMetaTags(generatedImageUrl, name);
                 
                 displayShareOptions(currentShareKey, name);
@@ -649,6 +662,7 @@
             });
         };
 
+        // Update the loadSharedImage function to ensure meta tags are updated when loading shared images
         async function loadSharedImage(key) {
             setGeneratingState(true);
             mainHeading.textContent = "Viewing Shared Eid Greeting";
@@ -671,7 +685,7 @@
                     generatedImage.alt = `Eid Greeting for ${data.name}`;
                     imageWrapper.style.display = 'block';
 
-                    // Update meta tags with the shared image
+                    // Update meta tags with the shared image URL
                     updateMetaTags(data.imageUrl, data.name);
 
                     nameInput.value = data.name;
@@ -689,6 +703,8 @@
                 mainHeading.textContent = "Greeting Not Found";
                 if(generateBtn) generateBtn.style.display = "inline-flex";
                 nameInput.disabled = false;
+                // Clear image URLs on error
+                updateMetaTags('', '');
             } finally {
                 setGeneratingState(false);
             }
@@ -700,6 +716,20 @@
             const shareKey = urlParams.get('key');
 
             if (shareKey) {
+                // First try to get the image URL from localStorage
+                const greetingData = localStorage.getItem(`greeting_${shareKey}`);
+                if (greetingData) {
+                    try {
+                        const data = JSON.parse(greetingData);
+                        if (data && data.imageUrl) {
+                            // Update meta tags with the image URL before loading
+                            updateMetaTags(data.imageUrl, data.name || '');
+                        }
+                    } catch (error) {
+                        console.error('Error parsing greeting data:', error);
+                    }
+                }
+                // Then load the shared image
                 setTimeout(() => loadSharedImage(shareKey), 100);
             } else {
                 // Reset meta tags to default values
