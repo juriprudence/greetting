@@ -622,23 +622,27 @@
         };
 
         window.shareOnFacebook = function() {
-            if (!currentShareKey) {
+            if (!currentShareKey || !generatedImageUrl) {
                 showNotification("Generate or load a greeting first.", "error");
                 return;
             }
             const shareUrl = `${window.location.origin}${window.location.pathname}?key=${currentShareKey}`;
-            const quoteText = `Check out this personalized Eid greeting! Eid Mubarak! 🌙`;
+            // Ensure image URL ends with .png
+            const pngImageUrl = generatedImageUrl.replace(/\.[^/.]+$/, "") + ".png";
+            const quoteText = `Check out this personalized Eid greeting! Eid Mubarak! 🌙\n\nImage: ${pngImageUrl}\nCreate your own: ${shareUrl}`;
             const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(quoteText)}`;
             window.open(fbShareUrl, '_blank', 'noopener,noreferrer,width=600,height=400');
         };
 
         window.shareOnWhatsApp = function() {
-            if (!currentShareKey) {
+            if (!currentShareKey || !generatedImageUrl) {
                 showNotification("Generate or load a greeting first.", "error");
                 return;
             }
             const shareUrl = `${window.location.origin}${window.location.pathname}?key=${currentShareKey}`;
-            const text = encodeURIComponent(`Assalam-o-Alaikum! ✨ Check out the personalized Eid greeting I made:\n\n${shareUrl}\n\nYou can create your own too! Eid Mubarak! 🌙`);
+            // Ensure image URL ends with .png
+            const pngImageUrl = generatedImageUrl.replace(/\.[^/.]+$/, "") + ".png";
+            const text = encodeURIComponent(`Assalam-o-Alaikum! ✨ Check out this personalized Eid greeting:\n\n${pngImageUrl}\n\nCreate your own greeting here:\n${shareUrl}\n\nEid Mubarak! 🌙`);
             const whatsappUrl = `https://api.whatsapp.com/send?text=${text}`;
             window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
         };
