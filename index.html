@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eid Greeting Generator</title>
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Eid Greeting Generator">
+    <meta property="og:description" content="Create and share personalized Eid greetings">
+    <meta property="og:image" content="">
+    <meta property="og:url" content="">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Eid Greeting Generator">
+    <meta name="twitter:description" content="Create and share personalized Eid greetings">
+    <meta name="twitter:image" content="">
+    
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   
@@ -443,6 +457,29 @@
             }
         }
 
+        // Add function to update meta tags
+        function updateMetaTags(imageUrl, name) {
+            const currentUrl = window.location.href;
+            const title = name ? `Eid Greeting for ${name}` : 'Eid Greeting Generator';
+            const description = name ? 
+                `Check out this personalized Eid greeting for ${name}! Eid Mubarak! 🌙` : 
+                'Create and share personalized Eid greetings';
+
+            // Update Open Graph tags
+            document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+            document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+            document.querySelector('meta[property="og:image"]').setAttribute('content', imageUrl);
+            document.querySelector('meta[property="og:url"]').setAttribute('content', currentUrl);
+
+            // Update Twitter Card tags
+            document.querySelector('meta[name="twitter:title"]').setAttribute('content', title);
+            document.querySelector('meta[name="twitter:description"]').setAttribute('content', description);
+            document.querySelector('meta[name="twitter:image"]').setAttribute('content', imageUrl);
+
+            // Update page title
+            document.title = title;
+        }
+
         window.generateImage = async function() {
             if (isGenerating) {
                 return;
@@ -508,6 +545,10 @@
                 generatedImage.src = generatedImageUrl;
                 generatedImage.alt = `Eid Greeting for ${name}`;
                 imageWrapper.style.display = 'block';
+                
+                // Update meta tags with the new image
+                updateMetaTags(generatedImageUrl, name);
+                
                 displayShareOptions(currentShareKey, name);
 
                 showNotification("Greeting generated successfully!", "success");
@@ -630,6 +671,9 @@
                     generatedImage.alt = `Eid Greeting for ${data.name}`;
                     imageWrapper.style.display = 'block';
 
+                    // Update meta tags with the shared image
+                    updateMetaTags(data.imageUrl, data.name);
+
                     nameInput.value = data.name;
                     nameInput.disabled = true;
 
@@ -658,6 +702,8 @@
             if (shareKey) {
                 setTimeout(() => loadSharedImage(shareKey), 100);
             } else {
+                // Reset meta tags to default values
+                updateMetaTags('', '');
                 mainHeading.textContent = "Generate Your Personalized Eid Greeting";
                 if (nameInput) {
                     nameInput.disabled = false;
